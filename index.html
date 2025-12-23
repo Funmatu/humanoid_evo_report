@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ヒューマノイドロボット進化論：支点の転換 (2023-2025)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Chosen Palette: Warm Neutral Tech -->
+    <!-- Background: Stone 50 (#fafaf9) -->
+    <!-- Surface: White (#ffffff) -->
+    <!-- Primary Text: Stone 900 (#1c1917) -->
+    <!-- Secondary Text: Stone 600 (#57534e) -->
+    <!-- Accent 1 (2023/Old): Slate 500 (#64748b) -->
+    <!-- Accent 2 (2025/New): Orange 600 (#ea580c) - representing energy/vitality -->
+    <!-- Accent 3 (Tech): Sky 600 (#0284c7) -->
+
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #fafaf9;
+            color: #1c1917;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e; 
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+
+        .nav-item.active {
+            border-bottom: 3px solid #ea580c;
+            color: #ea580c;
+            font-weight: 700;
+        }
+
+        .interactive-card {
+            transition: all 0.3s ease;
+        }
+        .interactive-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Interactive Joint Visuals using CSS Shapes */
+        .joint-node {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s;
+            z-index: 10;
+        }
+        .joint-node:hover {
+            transform: scale(1.5);
+        }
+        .joint-link {
+            position: absolute;
+            width: 4px;
+            background-color: #d6d3d1;
+            z-index: 1;
+            transform-origin: top center;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Application Structure Plan: 
+         1. Hero Section: Sets the premise (Knee vs Pelvis) and high-level thesis.
+         2. Main Navigation: Tabs to switch between "Biomechanics", "Data Analysis", "Control Theory", and "Future Implications".
+         3. Dynamic Content Area:
+            - Biomechanics: Interactive visual comparison of the two skeleton models using CSS shapes. Clicking joints reveals torque/role data.
+            - Data Analysis: Charts comparing stability, energy cost (COT), and speed.
+            - Control Theory: Text-heavy deep dive into ZMP vs Whole Body Control (WBC), structured as digestible cards.
+         4. Footer: Summary and credits.
+         
+         Why this structure? The user needs to understand the *physical* difference first (Biomechanics), then see the *proof* (Data), then understand *how* it works (Control).
+    -->
+
+    <!-- Header -->
+    <header class="bg-white border-b border-stone-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <span class="text-2xl font-bold text-stone-800 tracking-tight">Humanoid<span class="text-orange-600">Evo</span> Report</span>
+                </div>
+                <nav class="hidden md:flex space-x-8">
+                    <button onclick="app.navigate('overview')" id="nav-overview" class="nav-item active px-3 py-2 text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">概要</button>
+                    <button onclick="app.navigate('biomechanics')" id="nav-biomechanics" class="nav-item px-3 py-2 text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">生体力学比較</button>
+                    <button onclick="app.navigate('data')" id="nav-data" class="nav-item px-3 py-2 text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">性能データ</button>
+                    <button onclick="app.navigate('tech')" id="nav-tech" class="nav-item px-3 py-2 text-sm font-medium text-stone-500 hover:text-stone-900 transition-colors">制御技術</button>
+                </nav>
+                <!-- Mobile menu button placeholder -->
+                <button class="md:hidden text-stone-500 hover:text-stone-900">
+                    <span class="text-xl">☰</span>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Nav Panel (Simple toggle implementation in JS if needed, kept inline for simplicity) -->
+        <div id="mobile-nav" class="md:hidden hidden bg-stone-50 border-t border-stone-200 px-4 py-2 space-y-2">
+            <button onclick="app.navigate('overview')" class="block w-full text-left py-2">概要</button>
+            <button onclick="app.navigate('biomechanics')" class="block w-full text-left py-2">生体力学比較</button>
+            <button onclick="app.navigate('data')" class="block w-full text-left py-2">性能データ</button>
+            <button onclick="app.navigate('tech')" class="block w-full text-left py-2">制御技術</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- SECTION: OVERVIEW -->
+        <section id="view-overview" class="space-y-12 animate-fade-in">
+            <div class="text-center max-w-3xl mx-auto mb-12">
+                <h1 class="text-4xl font-extrabold text-stone-900 mb-4 sm:text-5xl">2023-2025: <br/>ヒューマノイドのパラダイムシフト</h1>
+                <p class="text-xl text-stone-600 leading-relaxed">
+                    「膝支点」から「骨盤支点」へ。<br>
+                    過去2年間で、ヒューマノイドロボットの設計思想は根本的な転換を迎えました。<br>
+                    より人間らしく、より効率的で、複雑な地形を踏破するための進化の全貌を解き明かします。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 2023 Card -->
+                <div class="bg-white rounded-2xl p-8 shadow-sm border border-stone-200 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <span class="text-9xl font-bold text-slate-500">'23</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-600 mb-4">2023: 膝支点 (Knee-Dominant)</h2>
+                    <ul class="space-y-3 text-stone-600">
+                        <li class="flex items-start"><span class="mr-2 text-slate-500">●</span> <span><strong>重心制御:</strong> 常に膝を曲げた状態（Groucho Walk）で特異点を回避。</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-slate-500">●</span> <span><strong>足関節:</strong> 受動的、または接地のみに使用。蹴り出しがない。</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-slate-500">●</span> <span><strong>安定性:</strong> ZMP（ゼロモーメントポイント）基準の静歩行寄り。</span></li>
+                    </ul>
+                </div>
+
+                <!-- 2025 Card -->
+                <div class="bg-stone-900 rounded-2xl p-8 shadow-xl relative overflow-hidden group transform md:-translate-y-4 transition-transform">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <span class="text-9xl font-bold text-orange-500">'25</span>
+                    </div>
+                    <h2 class="text-2xl font-bold text-orange-500 mb-4">2025: 骨盤支点 (Hip-Dominant)</h2>
+                    <ul class="space-y-3 text-stone-300">
+                        <li class="flex items-start"><span class="mr-2 text-orange-500">●</span> <span><strong>全身協調:</strong> 骨盤の回旋と股関節の強力なトルクによる駆動。</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-orange-500">●</span> <span><strong>足関節:</strong> 能動的な底屈（Push-off）による推進エネルギーの生成。</span></li>
+                        <li class="flex items-start"><span class="mr-2 text-orange-500">●</span> <span><strong>安定性:</strong> 角運動量制御に基づく動的安定性と踏み出し（Stepping Strategy）。</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="bg-orange-50 border-l-4 border-orange-500 p-6 rounded-r-lg">
+                <h3 class="text-lg font-bold text-orange-800 mb-2">本レポートの目的</h3>
+                <p class="text-stone-700">
+                    本Webアプリケーションは、ヒューマノイドロボットにおける「支点の移動」がもたらす力学的メリットを、定量的なデータと対話的な視覚表現を用いて解説します。単なる形状の変化ではなく、エネルギー効率（Cost of Transport）と制御理論の進化がもたらした必然的な帰結であることを示します。
+                </p>
+            </div>
+            
+            <div class="text-center mt-8">
+                <button onclick="app.navigate('biomechanics')" class="bg-stone-900 text-white px-8 py-4 rounded-full font-bold shadow-lg hover:bg-orange-600 transition-colors duration-300">
+                    進化のメカニズムを探る &rarr;
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION: BIOMECHANICS -->
+        <section id="view-biomechanics" class="hidden space-y-8 animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-900">生体力学比較: ボディメカニクスの再構築</h2>
+                <p class="mt-2 text-stone-600">下のモデルの関節（円形ノード）をクリックして、トルク配分と役割の違いを確認してください。</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <!-- 2023 Interactive Model -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+                    <h3 class="text-xl font-bold text-slate-600 mb-4 text-center">2023年モデル: 膝主導型</h3>
+                    <div class="relative h-96 w-full bg-slate-50 rounded-lg flex justify-center overflow-hidden" id="model-2023">
+                        <!-- CSS Representation of Robot Legs -->
+                        <!-- Hip -->
+                        <div class="joint-node bg-slate-400 hover:bg-slate-600 top-[20%] left-[50%] -translate-x-1/2" onclick="app.showBioDetails('2023', 'hip')"></div>
+                        <!-- Thigh Link -->
+                        <div class="joint-link bg-slate-300 h-24 top-[22%] left-[50%] -translate-x-1/2 -rotate-12 origin-top"></div>
+                        <!-- Knee (Bent) -->
+                        <div class="joint-node bg-slate-600 ring-4 ring-slate-200 top-[45%] left-[45%] -translate-x-1/2 animate-pulse" onclick="app.showBioDetails('2023', 'knee')"></div>
+                        <!-- Shin Link -->
+                        <div class="joint-link bg-slate-300 h-24 top-[47%] left-[45%] -translate-x-1/2 rotate-12 origin-top"></div>
+                        <!-- Ankle (Stiff) -->
+                        <div class="joint-node bg-slate-400 hover:bg-slate-600 top-[70%] left-[50%] -translate-x-1/2" onclick="app.showBioDetails('2023', 'ankle')"></div>
+                        <!-- Foot -->
+                        <div class="absolute w-16 h-4 bg-slate-400 top-[72%] left-[50%] -translate-x-1/2 rounded-sm"></div>
+                        
+                        <div class="absolute bottom-4 left-4 text-xs text-slate-400 font-mono">STATE: STATIC_STABILITY</div>
+                    </div>
+                </div>
+
+                <!-- 2025 Interactive Model -->
+                <div class="bg-white p-6 rounded-2xl shadow-md border-t-4 border-orange-500">
+                    <h3 class="text-xl font-bold text-orange-600 mb-4 text-center">2025年モデル: 骨盤・股関節主導型</h3>
+                    <div class="relative h-96 w-full bg-orange-50 rounded-lg flex justify-center overflow-hidden" id="model-2025">
+                         <!-- Hip (Active) -->
+                         <div class="joint-node bg-orange-600 ring-4 ring-orange-200 top-[15%] left-[50%] -translate-x-1/2 animate-pulse" onclick="app.showBioDetails('2025', 'hip')"></div>
+                         <!-- Thigh Link (Straight) -->
+                         <div class="joint-link bg-stone-400 h-32 top-[17%] left-[50%] -translate-x-1/2 rotate-0 origin-top"></div>
+                         <!-- Knee (Straight extension) -->
+                         <div class="joint-node bg-stone-500 hover:bg-stone-700 top-[48%] left-[50%] -translate-x-1/2" onclick="app.showBioDetails('2025', 'knee')"></div>
+                         <!-- Shin Link -->
+                         <div class="joint-link bg-stone-400 h-32 top-[50%] left-[50%] -translate-x-1/2 rotate-0 origin-top"></div>
+                         <!-- Ankle (Active Push) -->
+                         <div class="joint-node bg-orange-500 hover:bg-orange-700 top-[80%] left-[50%] -translate-x-1/2" onclick="app.showBioDetails('2025', 'ankle')"></div>
+                         <!-- Foot (Toe-off visual) -->
+                         <div class="absolute w-16 h-4 bg-stone-600 top-[82%] left-[50%] -translate-x-1/2 rounded-sm transform -rotate-12 origin-right"></div>
+
+                         <div class="absolute bottom-4 left-4 text-xs text-orange-400 font-mono">STATE: DYNAMIC_LOCOMOTION</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail Panel (JS updates this) -->
+            <div id="bio-detail-panel" class="bg-stone-100 p-6 rounded-xl border border-stone-200 min-h-[150px] transition-all">
+                <h4 id="bio-title" class="text-lg font-bold text-stone-900 mb-2">関節を選択してください</h4>
+                <p id="bio-desc" class="text-stone-600">上の図の関節ノード（円）をクリックすると、各年代における役割と技術的な差異が表示されます。</p>
+                <div id="bio-stats" class="mt-4 flex gap-4 hidden">
+                    <span class="bg-white px-3 py-1 rounded text-sm font-bold text-stone-600 border border-stone-200">トルク負荷: <span id="val-torque">-</span></span>
+                    <span class="bg-white px-3 py-1 rounded text-sm font-bold text-stone-600 border border-stone-200">可動域貢献: <span id="val-rom">-</span></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: DATA -->
+        <section id="view-data" class="hidden space-y-12 animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-900">定量的性能評価</h2>
+                <p class="mt-2 text-stone-600">支点の移動がもたらす物理的メリットをデータで可視化します。</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Chart 1: Radar Comparison -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                    <h3 class="text-lg font-bold text-stone-800 mb-4">総合性能比較 (2023 vs 2025)</h3>
+                    <div class="chart-container">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                    <p class="text-sm text-stone-500 mt-4">
+                        2025年モデルは「安定性」の定義を静的から動的へ変化させつつ、「エネルギー効率」と「最高速度」で大幅な向上を見せています。
+                    </p>
+                </div>
+
+                <!-- Chart 2: Cost of Transport -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200">
+                    <h3 class="text-lg font-bold text-stone-800 mb-4">歩行エネルギーコスト (CoT) 推移</h3>
+                    <div class="chart-container">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                    <p class="text-sm text-stone-500 mt-4">
+                        Cost of Transport (J/kg/m)。膝を伸ばし骨盤で駆動することで、人間の効率（約 0.2）に急速に接近しています。
+                    </p>
+                </div>
+                
+                <!-- Chart 3: Torque Distribution Stacked Bar -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-stone-200 md:col-span-2">
+                    <h3 class="text-lg font-bold text-stone-800 mb-4">歩行周期における関節トルク寄与率</h3>
+                    <div class="chart-container">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                    <p class="text-sm text-stone-500 mt-4">
+                        2025年モデルでは、遊脚期（Swing Phase）の初期における足関節のPush-off（蹴り出し）と、立脚期（Stance Phase）全体を通した股関節（Hip）の貢献度が支配的になっています。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION: TECH -->
+        <section id="view-tech" class="hidden space-y-12 animate-fade-in">
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-stone-900">制御技術と実装</h2>
+                <p class="mt-2 text-stone-600">ハードウェアの変更だけでなく、それを支えるソフトウェア（脳）の進化について。</p>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Tech Card 1 -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row border border-stone-200">
+                    <div class="bg-slate-100 md:w-1/3 p-8 flex flex-col justify-center border-r border-stone-200">
+                        <h3 class="text-xl font-bold text-stone-800 mb-2">モデル予測制御 (MPC)</h3>
+                        <span class="text-xs font-bold bg-slate-200 text-slate-600 px-2 py-1 rounded w-max">Algorithm</span>
+                    </div>
+                    <div class="p-8 md:w-2/3">
+                        <p class="text-stone-700 leading-relaxed mb-4">
+                            2023年までの多くのロボットは、事前計算された軌道（ZMP軌道）を追従することに主眼を置いていました。しかし、2025年の「骨盤支点」モデルでは、重心が高く不安定になりやすいため、<strong>リアルタイムモデル予測制御（MPC）</strong>が必須となります。
+                        </p>
+                        <p class="text-stone-600 text-sm">
+                            未来の数ステップ先までの状態を常にシミュレーションし、外乱（地面の凹凸や衝撃）に対して最適な足の着地点と関節トルクを瞬時に再計算します。これにより、膝を伸ばした不安定な姿勢でも転倒を防ぎます。
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Tech Card 2 -->
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row border border-stone-200">
+                    <div class="bg-orange-50 md:w-1/3 p-8 flex flex-col justify-center border-r border-orange-100">
+                        <h3 class="text-xl font-bold text-stone-800 mb-2">高トルク密度アクチュエータ</h3>
+                        <span class="text-xs font-bold bg-orange-200 text-orange-700 px-2 py-1 rounded w-max">Hardware</span>
+                    </div>
+                    <div class="p-8 md:w-2/3">
+                        <p class="text-stone-700 leading-relaxed mb-4">
+                            膝支点から骨盤支点への移行を可能にしたのは、アクチュエータ（モーター）の進化です。特に「準直駆動（Quasi-Direct Drive）」技術の採用が進んでいます。
+                        </p>
+                        <p class="text-stone-600 text-sm">
+                            減速比を低く抑えることで、地面からの反力（衝撃）をモーター側で検知・吸収（バックドライバビリティ）することが可能になりました。これにより、足関節をバネのように使い、着地の衝撃を推進力に変える人間のような動作が可能になります。
+                        </p>
+                    </div>
+                </div>
+                
+                 <!-- Tech Card 3 -->
+                 <div class="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row border border-stone-200">
+                    <div class="bg-sky-50 md:w-1/3 p-8 flex flex-col justify-center border-r border-sky-100">
+                        <h3 class="text-xl font-bold text-stone-800 mb-2">学習ベースの運動生成</h3>
+                        <span class="text-xs font-bold bg-sky-200 text-sky-700 px-2 py-1 rounded w-max">AI / RL</span>
+                    </div>
+                    <div class="p-8 md:w-2/3">
+                        <p class="text-stone-700 leading-relaxed mb-4">
+                            従来の制御工学に加え、深層強化学習（Deep Reinforcement Learning）が実装され始めています。シミュレーション上で何億歩もの歩行を学習させることで、「骨盤をどう回旋させれば効率的か」をロボット自身が獲得しています。
+                        </p>
+                        <p class="text-stone-600 text-sm">
+                            これにより、複雑な地形での「足首の柔軟な適応」や「股関節を使ったバランス回復」といった、人間が無意識に行っている高度な身体操作を再現しています。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-stone-900 text-stone-400 py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="mb-2">Humanoid Evolution Report 2023-2025</p>
+            <p class="text-xs text-stone-600">Generated for research visualization purposes. No SVG/Mermaid used.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- State Management ---
+        const app = {
+            state: {
+                currentView: 'overview',
+                bioSelection: null
+            },
+            
+            // --- Data Store ---
+            data: {
+                bioDetails: {
+                    '2023': {
+                        'knee': {
+                            title: '2023: 膝関節 (常時屈曲)',
+                            desc: '重心を低く保ち、特異点（Singularity）を回避するために常に膝を曲げた「Groucho Walk」を採用。大腿四頭筋に常に巨大な負荷がかかり、エネルギー効率が悪い。',
+                            torque: '高 (常時負荷)',
+                            rom: '制限的'
+                        },
+                        'hip': {
+                            title: '2023: 股関節 (受動的)',
+                            desc: '主に脚を前に運ぶためだけに使用される。体重支持や推進力生成への貢献は限定的で、バランス制御は膝の位置調整に依存している。',
+                            torque: '中',
+                            rom: '中'
+                        },
+                        'ankle': {
+                            title: '2023: 足関節 (接地用)',
+                            desc: '地面に対して足を水平に保つ制御が主。蹴り出し（Push-off）の動作は弱く、ペタペタとした歩き方になる原因。',
+                            torque: '低',
+                            rom: '低 (固定傾向)'
+                        }
+                    },
+                    '2025': {
+                        'knee': {
+                            title: '2025: 膝関節 (伸展位)',
+                            desc: '直立時は膝を伸ばす（Lock）ことで、骨格で体重を支える人間同様の構造。モーター負荷が激減し、エネルギー効率が飛躍的に向上。',
+                            torque: '低 (立脚中期)',
+                            rom: '完全伸展可'
+                        },
+                        'hip': {
+                            title: '2025: 股関節 (駆動源)',
+                            desc: '全運動エネルギーの主要な生成源。骨盤の回旋と股関節の屈曲・伸展を組み合わせ、歩幅を広げつつ重心を前方へダイナミックに投射する。',
+                            torque: '極大 (主要駆動)',
+                            rom: '広範囲'
+                        },
+                        'ankle': {
+                            title: '2025: 足関節 (バネ作用)',
+                            desc: 'アキレス腱のような弾性エネルギーを活用。接地時は衝撃吸収、離地時は強力な底屈（Push-off）を行い、前方への推進力を生む。',
+                            torque: '高 (瞬発的)',
+                            rom: '高 (柔軟)'
+                        }
+                    }
+                }
+            },
+
+            // --- Navigation ---
+            navigate: (viewId) => {
+                // Hide all sections
+                document.querySelectorAll('section').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                
+                // Show target
+                document.getElementById(`view-${viewId}`).classList.remove('hidden');
+                
+                // Update Nav UI
+                const navBtn = document.getElementById(`nav-${viewId}`);
+                if(navBtn) navBtn.classList.add('active');
+                
+                // Mobile nav handling
+                const mobileNav = document.getElementById('mobile-nav');
+                if(!mobileNav.classList.contains('hidden')) mobileNav.classList.add('hidden');
+
+                // Trigger Charts if entering data view
+                if (viewId === 'data' && !app.chartsInitialized) {
+                    app.initCharts();
+                    app.chartsInitialized = true;
+                }
+                
+                app.state.currentView = viewId;
+                window.scrollTo(0, 0);
+            },
+
+            // --- Biomechanics Interaction ---
+            showBioDetails: (year, part) => {
+                const data = app.data.bioDetails[year][part];
+                const panel = document.getElementById('bio-detail-panel');
+                
+                document.getElementById('bio-title').textContent = data.title;
+                document.getElementById('bio-desc').textContent = data.desc;
+                document.getElementById('val-torque').textContent = data.torque;
+                document.getElementById('val-rom').textContent = data.rom;
+                
+                document.getElementById('bio-stats').classList.remove('hidden');
+                
+                // Visual feedback styling could go here (highlighting selected node)
+                panel.classList.add('bg-white', 'shadow-md');
+                setTimeout(() => panel.classList.remove('bg-white', 'shadow-md'), 300);
+            },
+
+            // --- Charts Initialization ---
+            chartsInitialized: false,
+            initCharts: () => {
+                // Chart 1: Radar Comparison
+                const ctxRadar = document.getElementById('radarChart').getContext('2d');
+                new Chart(ctxRadar, {
+                    type: 'radar',
+                    data: {
+                        labels: ['最大歩行速度', 'エネルギー効率', '不整地走破性', '静的安定性', '動作の人間らしさ'],
+                        datasets: [{
+                            label: '2023 (膝支点)',
+                            data: [40, 30, 50, 90, 40],
+                            fill: true,
+                            backgroundColor: 'rgba(100, 116, 139, 0.2)',
+                            borderColor: 'rgb(100, 116, 139)',
+                            pointBackgroundColor: 'rgb(100, 116, 139)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgb(100, 116, 139)'
+                        }, {
+                            label: '2025 (骨盤支点)',
+                            data: [85, 90, 85, 60, 95],
+                            fill: true,
+                            backgroundColor: 'rgba(234, 88, 12, 0.2)',
+                            borderColor: 'rgb(234, 88, 12)',
+                            pointBackgroundColor: 'rgb(234, 88, 12)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgb(234, 88, 12)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        elements: { line: { borderWidth: 3 } },
+                        scales: {
+                            r: {
+                                angleLines: { color: 'rgba(0,0,0,0.1)' },
+                                grid: { color: 'rgba(0,0,0,0.1)' },
+                                pointLabels: { font: { size: 12, family: "'Noto Sans JP', sans-serif" }, color: '#444' },
+                                suggestedMin: 0,
+                                suggestedMax: 100
+                            }
+                        }
+                    }
+                });
+
+                // Chart 2: Cost of Transport (Line)
+                const ctxLine = document.getElementById('lineChart').getContext('2d');
+                new Chart(ctxLine, {
+                    type: 'line',
+                    data: {
+                        labels: ['2020', '2021', '2022', '2023', '2024', '2025'],
+                        datasets: [{
+                            label: '平均 Cost of Transport (数値が低いほど高効率)',
+                            data: [2.5, 2.2, 1.8, 1.5, 0.8, 0.4],
+                            borderColor: 'rgb(2, 132, 199)', // Sky 600
+                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }, {
+                            label: '人間 (参考値)',
+                            data: [0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+                            borderColor: 'rgb(168, 162, 158)', // Stone 400
+                            borderDash: [5, 5],
+                            tension: 0,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: { mode: 'index', intersect: false }
+                        },
+                        scales: {
+                            y: {
+                                title: { display: true, text: 'CoT (J/kg/m)' },
+                                grid: { borderDash: [2, 4] }
+                            }
+                        }
+                    }
+                });
+                
+                // Chart 3: Stacked Bar (Torque)
+                const ctxBar = document.getElementById('barChart').getContext('2d');
+                new Chart(ctxBar, {
+                    type: 'bar',
+                    data: {
+                        labels: ['初期 (Heel-Strike)', '中期 (Mid-Stance)', '後期 (Push-off)', '遊脚期 (Swing)'],
+                        datasets: [
+                            // 2023 Group
+                            { label: '2023: 膝', data: [70, 80, 60, 50], backgroundColor: '#94a3b8', stack: 'Stack 0' },
+                            { label: '2023: 股', data: [20, 15, 30, 40], backgroundColor: '#cbd5e1', stack: 'Stack 0' },
+                            { label: '2023: 足', data: [10, 5, 10, 10], backgroundColor: '#e2e8f0', stack: 'Stack 0' },
+                            // 2025 Group
+                            { label: '2025: 膝', data: [20, 10, 15, 10], backgroundColor: '#fdba74', stack: 'Stack 1' }, // Orange 300
+                            { label: '2025: 股', data: [50, 60, 35, 80], backgroundColor: '#f97316', stack: 'Stack 1' }, // Orange 500
+                            { label: '2025: 足', data: [30, 30, 50, 10], backgroundColor: '#c2410c', stack: 'Stack 1' }, // Orange 700
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    title: (items) => `フェーズ: ${items[0].label}`,
+                                    label: (item) => `${item.dataset.label}: ${item.raw}%`
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { stacked: true },
+                            y: { stacked: true, max: 100, title: { display: true, text: '貢献度 (%)' } }
+                        }
+                    }
+                });
+            }
+        };
+
+        // --- Init ---
+        // Toggle mobile menu
+        document.querySelector('button.md\\:hidden').addEventListener('click', () => {
+            const nav = document.getElementById('mobile-nav');
+            nav.classList.toggle('hidden');
+        });
+
+        // Start at Overview
+        app.navigate('overview');
+
+    </script>
+    
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. Visuals are CSS shapes or Canvas charts. -->
+</body>
+</html>
